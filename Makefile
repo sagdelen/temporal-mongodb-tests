@@ -1,57 +1,31 @@
-.PHONY: up down tests load clean all
+.PHONY: all setup tests load teardown clean help
 
-# Default target
-all: up tests load
+all: setup tests load
 
-# Start infrastructure
-up:
-	cd docker && docker compose up -d
-	@echo "Waiting for services to be healthy..."
-	@sleep 10
-	cd tests && source .venv/bin/activate && python -c "from tests.conftest import *; import asyncio; asyncio.run(ensure_namespace())" 2>/dev/null || true
-	@echo "✓ Infrastructure ready"
+setup:
+	@./scripts/setup.sh
 
-# Stop infrastructure
-down:
-	cd docker && docker compose down -v
-
-# Run E2E tests
 tests:
-	cd tests && source .venv/bin/activate && python -m pytest -v --timeout=60
+	@./scripts/run-tests.sh
 
-# Run E2E tests (quick - subset)
-tests-quick:
-	cd tests && source .venv/bin/activate && python -m pytest tests/core tests/workflow -v --timeout=60
-
-# Run load tests
 load:
-	cd omes && ./run-scenarios.sh
+	@./scripts/run-load.sh quick
 
-# Run load tests (quick)
-load-quick:
-	cd omes && ./run-scenarios.sh quick
+load-standard:
+	@./scripts/run-load.sh standard
 
-# Setup Python environment
-setup-tests:
-	cd tests && python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+load-full:
+	@./scripts/run-load.sh full
 
-# Setup omes
-setup-omes:
-	cd omes && git clone --recursive https://github.com/temporalio/omes.git repo || true
-	cd omes/repo && git submodule update --init --recursive
+teardown:
+	@./scripts/teardown.sh
 
-# Clean up
-clean:
-	cd docker && docker compose down -v
-	rm -rf tests/.venv
-	rm -rf omes/repo
+clean: teardown
+	rm -rf tests/.venv omes/repo
 
-# Full test suite
-test: up tests load
-	@echo "✓ All tests completed"
-
-# Health check
-health:
-	@docker ps --filter name=temporal-mongodb --format "table {{.Names}}\t{{.Status}}"
-	@echo ""
-	@nc -zv localhost 7233 2>&1 || echo "⚠ Temporal server not reachable"
+help:
+	@echo "make setup    - Start infrastructure"
+	@echo "make tests    - Run functional tests"
+	@echo "make load     - Run load tests (quick)"
+	@echo "make teardown - Stop infrastructure"
+	@echo "make all      - setup + tests + load"
