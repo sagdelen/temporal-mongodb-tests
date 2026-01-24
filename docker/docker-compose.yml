@@ -1,0 +1,77 @@
+# Test setup for validating Docker images locally
+services:
+  mongodb:
+    image: mongo:7.0.24
+    container_name: temporal-test-mongodb
+    ports:
+      - "27017:27017"
+    entrypoint:
+      - "/bin/bash"
+      - "/mongodb-entrypoint.sh"
+    command:
+      - "mongod"
+      - "--replSet"
+      - "rs0"
+      - "--bind_ip_all"
+      - "--keyFile"
+      - "/data/configdb/mongo-keyfile"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: temporal
+      MONGO_INITDB_ROOT_PASSWORD: temporal
+    volumes:
+      - ./mongodb-entrypoint.sh:/mongodb-entrypoint.sh:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'mongosh --quiet --eval ''try { rs.status(); } catch (e) { if (e.codeName === "NotYetInitialized") { rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "mongodb:27017" }] }); } else { throw e; } } const hello = db.adminCommand({ hello: 1 }); if (hello.isWritablePrimary !== true) { quit(2); } db.adminCommand({ ping: 1 });'' || mongosh --quiet --username "$$MONGO_INITDB_ROOT_USERNAME" --password "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval ''try { rs.status(); } catch (e) { if (e.codeName === "NotYetInitialized") { rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "mongodb:27017" }] }); } else { throw e; } } const hello = db.adminCommand({ hello: 1 }); if (hello.isWritablePrimary !== true) { quit(2); } db.adminCommand({ ping: 1 });''',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - temporal-test
+
+  temporal-server:
+    image: ${DOCKER_REGISTRY:-agdelen}/temporal:${TEMPORAL_IMAGE_TAG:-1.30.0}
+    container_name: temporal-test-server
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "7233:7233"
+      - "7234:7234"
+      - "7235:7235"
+      - "7239:7239"
+    environment:
+      DB: mongodb
+      MONGODB_SEEDS: mongodb:27017
+      MONGODB_USER: temporal
+      MONGODB_PASSWORD: temporal
+      BIND_ON_IP: "0.0.0.0"
+      TEMPORAL_BROADCAST_ADDRESS: "0.0.0.0"
+    command: ["--config-file", "/etc/temporal/config/docker.yaml", "--allow-no-auth", "start"]
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 7233"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    networks:
+      - temporal-test
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: temporal-test-ui
+    depends_on:
+      temporal-server:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      TEMPORAL_ADDRESS: temporal-server:7233
+    networks:
+      - temporal-test
+
+networks:
+  temporal-test:
+    driver: bridge

@@ -1,0 +1,31 @@
+# Byte-compiled
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# pytest
+.pytest_cache/
+*.xml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# omes cloned repo
+omes/repo/
+
+# Docker volumes
+docker/data/
+
+# Logs
+*.log

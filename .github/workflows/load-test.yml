@@ -1,0 +1,181 @@
+name: MongoDB Load Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      temporal_version:
+        description: "Temporal MongoDB image tag (e.g., 1.30.0)"
+        required: true
+        default: "1.30.0"
+      mongodb_version:
+        description: "MongoDB version"
+        required: true
+        default: "7.0"
+      run_e2e:
+        description: "Run E2E tests"
+        type: boolean
+        default: true
+      run_load:
+        description: "Run Load tests"
+        type: boolean
+        default: true
+      load_test_mode:
+        description: "Load test mode (quick/full)"
+        type: choice
+        options:
+          - quick
+          - full
+        default: "quick"
+
+env:
+  TEMPORAL_IMAGE_TAG: ${{ github.event.inputs.temporal_version }}
+  MONGODB_VERSION: ${{ github.event.inputs.mongodb_version }}
+  DOCKER_REGISTRY: agdelen
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      temporal_version: ${{ github.event.inputs.temporal_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Print test configuration
+        run: |
+          echo "Temporal Version: ${{ github.event.inputs.temporal_version }}"
+          echo "MongoDB Version: ${{ github.event.inputs.mongodb_version }}"
+          echo "Run E2E: ${{ github.event.inputs.run_e2e }}"
+          echo "Run Load: ${{ github.event.inputs.run_load }}"
+          echo "Load Mode: ${{ github.event.inputs.load_test_mode }}"
+
+  e2e-tests:
+    needs: setup
+    if: ${{ github.event.inputs.run_e2e == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Start infrastructure
+        run: |
+          cd docker
+          docker compose up -d
+          echo "Waiting for services..."
+          sleep 30
+          docker ps
+
+      - name: Setup Python environment
+        run: |
+          cd tests
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Create namespace
+        run: |
+          cd tests
+          source .venv/bin/activate
+          python scripts/create_namespace.py
+
+      - name: Run E2E tests
+        run: |
+          cd tests
+          source .venv/bin/activate
+          python -m pytest -v --timeout=60 --tb=short --junitxml=results.xml
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-test-results
+          path: tests/results.xml
+
+      - name: Stop infrastructure
+        if: always()
+        run: |
+          cd docker
+          docker compose down -v
+
+  load-tests:
+    needs: setup
+    if: ${{ github.event.inputs.run_load == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Clone omes
+        run: |
+          cd omes
+          git clone --recursive https://github.com/temporalio/omes.git repo
+
+      - name: Start infrastructure
+        run: |
+          cd docker
+          docker compose up -d
+          echo "Waiting for services..."
+          sleep 30
+          docker ps
+
+      - name: Create namespace
+        run: |
+          cd tests
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install temporalio
+          python scripts/create_namespace.py
+
+      - name: Run load tests
+        run: |
+          cd omes
+          ./run-scenarios.sh ${{ github.event.inputs.load_test_mode }}
+
+      - name: Stop infrastructure
+        if: always()
+        run: |
+          cd docker
+          docker compose down -v
+
+  summary:
+    needs: [e2e-tests, load-tests]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Test Summary
+        run: |
+          echo "## MongoDB Persistence Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E Tests | ${{ needs.e2e-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Load Tests | ${{ needs.load-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Configuration:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Temporal: ${{ github.event.inputs.temporal_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- MongoDB: ${{ github.event.inputs.mongodb_version }}" >> $GITHUB_STEP_SUMMARY
