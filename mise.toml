@@ -1,0 +1,43 @@
+[tools]
+python = "3.11"
+go = "1.22"
+uv = "latest"
+
+[env]
+NAMESPACE = "temporal-mongodb"
+TEMPORAL_ADDRESS = "localhost:7233"
+DOCKER_REGISTRY = "agdelen"
+TEMPORAL_IMAGE_TAG = "1.30.0"
+MONGODB_VERSION = "7.0"
+
+[tasks.setup]
+description = "Start infrastructure and create namespace"
+run = "./scripts/setup.sh"
+
+[tasks.teardown]
+description = "Stop infrastructure"
+run = "docker compose -f docker/docker-compose.yml down -v"
+
+[tasks.load]
+description = "Run quick load test"
+run = "./scripts/run-load.sh quick"
+
+[tasks."load:standard"]
+description = "Run standard load test"
+run = "./scripts/run-load.sh standard"
+
+[tasks."load:full"]
+description = "Run full load test suite"
+run = "./scripts/run-load.sh full"
+
+[tasks.tests]
+description = "Run E2E tests"
+run = "./scripts/run-tests.sh"
+
+[tasks.clean]
+description = "Clean up everything"
+run = """
+docker compose -f docker/docker-compose.yml down -v 2>/dev/null || true
+rm -rf omes/repo
+rm -rf tests/.venv
+"""

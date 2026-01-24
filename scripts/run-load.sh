@@ -14,7 +14,7 @@ log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # Configuration
-NAMESPACE="${NAMESPACE:-mongodb-tests}"
+NAMESPACE="${NAMESPACE:-temporal-mongodb}"
 TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-localhost:7233}"
 LANGUAGE="${LANGUAGE:-python}"
 MODE="${1:-quick}"

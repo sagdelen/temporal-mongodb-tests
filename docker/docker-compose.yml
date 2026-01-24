@@ -1,8 +1,8 @@
 # Test setup for validating Docker images locally
 services:
   mongodb:
-    image: mongo:7.0.24
-    container_name: temporal-test-mongodb
+    image: mongo:${MONGODB_VERSION:-7.0}
+    container_name: temporal-mongodb-db
     ports:
       - "27017:27017"
     entrypoint:
@@ -30,11 +30,11 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - temporal-test
+      - temporal-mongodb
 
   temporal-server:
     image: ${DOCKER_REGISTRY:-agdelen}/temporal:${TEMPORAL_IMAGE_TAG:-1.30.0}
-    container_name: temporal-test-server
+    container_name: temporal-mongodb-server
     depends_on:
       mongodb:
         condition: service_healthy
@@ -57,11 +57,11 @@ services:
       timeout: 5s
       retries: 60
     networks:
-      - temporal-test
+      - temporal-mongodb
 
   temporal-ui:
     image: temporalio/ui:latest
-    container_name: temporal-test-ui
+    container_name: temporal-mongodb-ui
     depends_on:
       temporal-server:
         condition: service_started
@@ -70,8 +70,8 @@ services:
     environment:
       TEMPORAL_ADDRESS: temporal-server:7233
     networks:
-      - temporal-test
+      - temporal-mongodb
 
 networks:
-  temporal-test:
+  temporal-mongodb:
     driver: bridge

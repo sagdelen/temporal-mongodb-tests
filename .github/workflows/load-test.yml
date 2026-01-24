@@ -23,7 +23,7 @@ on:
 env:
   TEMPORAL_IMAGE_TAG: ${{ github.event.inputs.temporal_version }}
   DOCKER_REGISTRY: agdelen
-  NAMESPACE: mongodb-tests
+  NAMESPACE: temporal-mongodb
   TEMPORAL_ADDRESS: localhost:7233
 
 jobs:

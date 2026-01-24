@@ -5,7 +5,7 @@ from temporalio.client import Client
 from temporalio.api.workflowservice.v1 import RegisterNamespaceRequest
 from google.protobuf.duration_pb2 import Duration
 
-NAMESPACES = ["mongodb-tests"]
+NAMESPACES = ["temporal-mongodb"]
 
 
 async def main():

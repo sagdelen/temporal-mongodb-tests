@@ -5,7 +5,7 @@ set -e
 
 OMES_DIR="${OMES_DIR:-./repo}"
 SERVER_ADDRESS="${SERVER_ADDRESS:-localhost:7233}"
-NAMESPACE="${NAMESPACE:-mongodb-tests}"
+NAMESPACE="${NAMESPACE:-temporal-mongodb}"
 LANGUAGE="${LANGUAGE:-python}"
 
 # Colors

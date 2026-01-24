@@ -14,7 +14,7 @@ log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # Configuration
-NAMESPACE="${NAMESPACE:-mongodb-tests}"
+NAMESPACE="${NAMESPACE:-temporal-mongodb}"
 TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-localhost:7233}"
 TIMEOUT="${TEST_TIMEOUT:-60}"
 PYTEST_ARGS="${PYTEST_ARGS:--v --timeout=$TIMEOUT}"

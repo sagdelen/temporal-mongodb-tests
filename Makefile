@@ -1,31 +1,18 @@
-.PHONY: all setup tests load teardown clean help
-
-all: setup tests load
+# Wrapper for users without mise - prefer `mise run <task>`
+.PHONY: setup teardown load tests clean
 
 setup:
 	@./scripts/setup.sh
 
-tests:
-	@./scripts/run-tests.sh
+teardown:
+	@docker compose -f docker/docker-compose.yml down -v
 
 load:
 	@./scripts/run-load.sh quick
 
-load-standard:
-	@./scripts/run-load.sh standard
+tests:
+	@./scripts/run-tests.sh
 
-load-full:
-	@./scripts/run-load.sh full
-
-teardown:
-	@./scripts/teardown.sh
-
-clean: teardown
-	rm -rf tests/.venv omes/repo
-
-help:
-	@echo "make setup    - Start infrastructure"
-	@echo "make tests    - Run functional tests"
-	@echo "make load     - Run load tests (quick)"
-	@echo "make teardown - Stop infrastructure"
-	@echo "make all      - setup + tests + load"
+clean:
+	@docker compose -f docker/docker-compose.yml down -v 2>/dev/null || true
+	@rm -rf omes/repo tests/.venv
