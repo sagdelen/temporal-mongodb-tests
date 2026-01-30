@@ -21,28 +21,17 @@ PYTEST_ARGS="${PYTEST_ARGS:--v --timeout=$TIMEOUT}"
 
 cd "$ROOT_DIR/tests"
 
-# Setup virtual environment if not exists
-if [ ! -d ".venv" ]; then
-    log_info "Creating Python virtual environment..."
-    python3 -m venv .venv
-fi
-
-# Activate and install deps
-log_info "Activating virtual environment and installing dependencies..."
-source .venv/bin/activate
-pip install -q -r requirements.txt
-
 # Export env vars for tests
 export NAMESPACE
 export TEMPORAL_ADDRESS
 
-# Run tests
+# Run tests using uv for dependency management
 log_info "Running tests with: pytest $PYTEST_ARGS"
 log_info "  Namespace: $NAMESPACE"
 log_info "  Temporal: $TEMPORAL_ADDRESS"
 log_info "  Timeout: ${TIMEOUT}s per test"
 
-if python -m pytest $PYTEST_ARGS; then
+if uv run --with temporalio --with pytest --with pytest-asyncio --with pytest-timeout python -m pytest $PYTEST_ARGS; then
     log_info "✓ All tests passed!"
     exit 0
 else
