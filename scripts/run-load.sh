@@ -35,7 +35,7 @@ log_section() { echo -e "\n${BLUE}━━━ $1 ━━━${NC}"; }
 # Configuration
 NAMESPACE="${NAMESPACE:-temporal-mongodb}"
 TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-localhost:7233}"
-LANGUAGE="go"  # Go worker is sufficient for MongoDB validation
+LANGUAGE="go"
 MODE="${1:-quick}"
 
 OMES_DIR="$ROOT_DIR/omes/repo"
@@ -53,6 +53,7 @@ run_scenario() {
     local scenario=$1
     local iterations=$2
     local concurrent=${3:-10}
+    local options=$4  # Optional: e.g., "--option task-queue-count=5"
     local run_id="mongo-$(date +%s)-$RANDOM"
     
     log_info "Scenario: $scenario"
@@ -68,7 +69,8 @@ run_scenario() {
         --run-id "$run_id" \
         --iterations "$iterations" \
         --max-concurrent "$concurrent" \
-        --do-not-register-search-attributes
+        --do-not-register-search-attributes \
+        $options
     
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
@@ -119,7 +121,7 @@ case "$MODE" in
         run_scenario "throughput_stress" 20 10
         
         log_info "Phase 3: Multiple task queues"
-        run_scenario "workflow_on_many_task_queues" 100 20
+        run_scenario "workflow_on_many_task_queues" 100 20 "--option task-queue-count=5"
         ;;
         
     full)
@@ -132,7 +134,7 @@ case "$MODE" in
         run_scenario "throughput_stress" 50 20
         
         log_info "Phase 3: Multiple task queues"
-        run_scenario "workflow_on_many_task_queues" 200 50
+        run_scenario "workflow_on_many_task_queues" 200 50 "--option task-queue-count=10"
         
         log_info "Phase 4: Many actions (sequential)"
         run_scenario "workflow_with_many_actions" 20 1
