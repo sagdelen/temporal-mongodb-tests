@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       temporal_version:
-        description: "Temporal MongoDB image tag"
+        description: "Temporal image tag (e.g., 1.30.0-mongo.148)"
         required: true
         default: "1.30.0"
       mongodb_version:
@@ -20,7 +20,7 @@ on:
         type: boolean
         default: true
       load_mode:
-        description: "Load test mode (if enabled)"
+        description: "Load test mode"
         type: choice
         options:
           - quick
@@ -29,15 +29,13 @@ on:
         default: "standard"
 
 env:
-  TEMPORAL_IMAGE_TAG: ${{ github.event.inputs.temporal_version }}
-  MONGODB_VERSION: ${{ github.event.inputs.mongodb_version }}
   DOCKER_REGISTRY: agdelen
   NAMESPACE: temporal-mongodb
   TEMPORAL_ADDRESS: localhost:7233
 
 jobs:
   validate:
-    name: MongoDB Validation
+    name: Validate ${{ github.event.inputs.temporal_version }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -54,8 +52,12 @@ jobs:
         uses: jdx/mise-action@v2
 
       - name: Setup infrastructure
+        env:
+          TEMPORAL_IMAGE_TAG: ${{ github.event.inputs.temporal_version }}
+          MONGODB_VERSION: ${{ github.event.inputs.mongodb_version }}
         run: |
-          echo "Starting MongoDB ${{ github.event.inputs.mongodb_version }} + Temporal ${{ github.event.inputs.temporal_version }}"
+          echo "Testing agdelen/temporal:${{ github.event.inputs.temporal_version }}"
+          echo "MongoDB: ${{ github.event.inputs.mongodb_version }}"
           mise run setup
 
       - name: Wait for services
@@ -80,26 +82,15 @@ jobs:
         if: always()
         run: mise run teardown
 
-      - name: Generate Summary
+      - name: Summary
         if: always()
         run: |
           echo "## 🧪 MongoDB Validation Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Configuration" >> $GITHUB_STEP_SUMMARY
-          echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Temporal Version | \`${{ github.event.inputs.temporal_version }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| MongoDB Version | \`${{ github.event.inputs.mongodb_version }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| E2E Tests | ${{ github.event.inputs.run_e2e }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Load Tests | ${{ github.event.inputs.run_load }} (${{ github.event.inputs.load_mode }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`agdelen/temporal:${{ github.event.inputs.temporal_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**MongoDB:** \`${{ github.event.inputs.mongodb_version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Test Coverage" >> $GITHUB_STEP_SUMMARY
-          echo "- **E2E Tests**: 329 functional tests covering workflows, activities, signals, queries" >> $GITHUB_STEP_SUMMARY
-          echo "- **Load Tests**: Omes-based stress testing for throughput validation" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### What Was Validated" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Workflow persistence (MongoDB execution store)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ History storage (event sourcing)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Task queue dispatch (activity/workflow tasks)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Visibility queries (list/search workflows)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Concurrent operations under load" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E (329 tests) | ${{ github.event.inputs.run_e2e == 'true' && '✅ Ran' || '⏭️ Skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Load (${{ github.event.inputs.load_mode }}) | ${{ github.event.inputs.run_load == 'true' && '✅ Ran' || '⏭️ Skipped' }} |" >> $GITHUB_STEP_SUMMARY

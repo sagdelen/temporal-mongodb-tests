@@ -112,20 +112,36 @@ case "$MODE" in
         
     standard)
         log_section "Standard Validation (Release)"
-        log_info "Phase 1: Basic throughput"
+        log_info "Phase 1: Basic workflows"
         run_scenario "workflow_with_single_noop_activity" 500 50
         
-        log_info "Phase 2: Higher load"
-        run_scenario "workflow_with_single_noop_activity" 1000 100
+        log_info "Phase 2: Child workflows & continue-as-new"
+        run_scenario "throughput_stress" 20 10
+        
+        log_info "Phase 3: Multiple task queues"
+        run_scenario "workflow_on_many_task_queues" 100 20
         ;;
         
     full)
         log_section "Full Stress Test"
+        
         log_info "Phase 1: High-volume basic workflows"
         run_scenario "workflow_with_single_noop_activity" 2000 100
         
         log_info "Phase 2: Throughput stress (child workflows, continue-as-new)"
-        run_scenario "throughput_stress" 10 5
+        run_scenario "throughput_stress" 50 20
+        
+        log_info "Phase 3: Multiple task queues"
+        run_scenario "workflow_on_many_task_queues" 200 50
+        
+        log_info "Phase 4: Many actions (sequential)"
+        run_scenario "workflow_with_many_actions" 20 1
+        
+        log_info "Phase 5: Scheduler stress"
+        run_duration_scenario "scheduler_stress" "30s"
+        
+        log_info "Phase 6: State transitions"
+        run_duration_scenario "state_transitions_steady" "30s"
         ;;
         
     *)

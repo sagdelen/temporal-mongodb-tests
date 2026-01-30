@@ -9,7 +9,7 @@
 - ✅ Docker compose: `temporal-mongodb-db`, `temporal-mongodb-server`, `temporal-mongodb-ui`
 - ✅ Namespace: `temporal-mongodb`
 - ✅ E2E testleri: 329 test, ~6 dakikada geçiyor
-- ✅ Omes entegrasyonu: `workflow_with_single_noop_activity` çalışıyor
+- ✅ Omes entegrasyonu: Çoğu senaryo çalışıyor
 - ✅ Temel GitHub Actions workflow
 
 ### Çalışan Komutlar
@@ -26,6 +26,71 @@ mise run clean       # Her şeyi temizle
 
 ---
 
+## Omes Senaryo Test Sonuçları (2026-01-30)
+
+| Senaryo                              | Durum      | Notlar                                                                                       |
+| ------------------------------------ | ---------- | -------------------------------------------------------------------------------------------- |
+| `workflow_with_single_noop_activity` | ✅ PASS    | 10 iter/0.2s                                                                                 |
+| `workflow_with_many_actions`         | ⚠️ PARTIAL | `max-concurrent=1` ile OK, yüksek concurrency'de `ChildWorkflowExecutionAlreadyStartedError` |
+| `workflow_on_many_task_queues`       | ✅ PASS    | `--option task-queue-count=N --task-queue-suffix-index-end N-1` gerekli                      |
+| `throughput_stress`                  | ✅ PASS    | 3 iter/41s (child wf + continue-as-new)                                                      |
+| `scheduler_stress`                   | ✅ PASS    | 2 iter/50s                                                                                   |
+| `ebb_and_flow`                       | ✅ PASS    | `--duration` gerekli (iteration değil)                                                       |
+| `fixed_resource_consumption`         | ✅ PASS    | 2m20s                                                                                        |
+| `state_transitions_steady`           | ✅ PASS    | `--option state-transitions-per-second=N` gerekli                                            |
+| `fuzzer`                             | ❌ SKIP    | Rust + protoc-gen-go setup gerekli (MongoDB ile ilgisiz)                                     |
+
+### � ÇÖZÜLDÜ: `workflow_with_many_actions`
+
+**Hata:** `ChildWorkflowExecutionAlreadyStartedError` (concurrent > 1)
+
+**Sonuç:** Bu MongoDB'ye özgü bir bug **DEĞİL**!
+
+PostgreSQL ile de aynı hata oluşuyor:
+
+- MongoDB: `max-concurrent=1` ✅, `max-concurrent>1` ❌
+- PostgreSQL: `max-concurrent=1` ✅, `max-concurrent>1` ❌
+
+**Teşhis:** Senaryo tasarımında child workflow ID'leri concurrent iterasyonlarda çakışıyor. Bu omes senaryosunun bilinen bir limitasyonu.
+
+**Aksiyon:** Aksiyona gerek yok - MongoDB persistence doğru çalışıyor.
+
+---
+
+## Faz 0: Benchmark Karşılaştırma (YENİ)
+
+**Öncelik:** Yüksek  
+**Tahmini Süre:** 4-6 saat
+
+### Task 0.1: Upstream Benchmark Sonuçlarını Araştır
+
+- [ ] Temporal'ın resmi benchmark sonuçlarını bul (varsa)
+- [ ] Omes benchmark raporlarını incele
+- [ ] PostgreSQL için baseline değerleri belirle
+
+### Task 0.2: MongoDB vs PostgreSQL Karşılaştırma
+
+**Eğer upstream sonuçları bulunamazsa:**
+
+- [ ] Ayrı repo oluştur: `temporal-persistence-benchmark`
+- [ ] Aynı donanımda her iki persistence'ı test et
+- [ ] Senaryolar:
+  - `workflow_with_single_noop_activity` (basit throughput)
+  - `throughput_stress` (karmaşık workflow)
+  - `scheduler_stress` (schedule performance)
+- [ ] Metrikler:
+  - Workflows/second
+  - Latency (p50, p95, p99)
+  - Resource usage (CPU, memory, disk I/O)
+
+### Task 0.3: Sonuçları Dokümante Et
+
+- [ ] Karşılaştırma tablosu oluştur
+- [ ] Avantaj/dezavantaj analizi
+- [ ] MongoDB optimization önerileri
+
+---
+
 ## Faz 1: Omes Test Coverage Genişletme
 
 **Öncelik:** Yüksek  
@@ -35,8 +100,8 @@ mise run clean       # Her şeyi temizle
 
 **Dosya:** `omes/repo/scenarios/`
 
-- [ ] Her senaryo dosyasını oku ve ne test ettiğini dokümante et
-- [ ] MongoDB persistence için hangilerinin anlamlı olduğunu belirle
+- [x] Her senaryo dosyasını oku ve ne test ettiğini dokümante et (yukarıdaki tablo)
+- [x] MongoDB persistence için hangilerinin anlamlı olduğunu belirle
 
 **Omes'teki senaryolar:**
 | Senaryo | Dosya | Açıklama |
