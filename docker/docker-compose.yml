@@ -59,9 +59,11 @@ services:
     networks:
       - temporal-mongodb
 
+  # UI only for local development (optional)
   temporal-ui:
     image: temporalio/ui:latest
     container_name: temporal-mongodb-ui
+    profiles: ["ui"]  # Only starts with: docker compose --profile ui up
     depends_on:
       temporal-server:
         condition: service_started
