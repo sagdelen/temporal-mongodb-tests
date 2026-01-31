@@ -41,6 +41,7 @@ jobs:
 
     steps:
       - name: 🔍 Validate image tag exists
+        id: validate_tag
         run: |
           IMAGE="agdelen/temporal"
           TAG="${{ github.event.inputs.temporal_version }}"
@@ -52,14 +53,15 @@ jobs:
 
           if echo "$RESPONSE" | grep -q '"name"'; then
             echo "✅ Image tag found: $IMAGE:$TAG"
+            echo "tag_valid=true" >> $GITHUB_OUTPUT
             
-            # Show available tags for reference
             echo ""
             echo "📋 Recent tags available:"
             curl -s "https://hub.docker.com/v2/repositories/$IMAGE/tags?page_size=10" | \
               jq -r '.results[].name' | head -10
           else
             echo "❌ ERROR: Image tag NOT found: $IMAGE:$TAG"
+            echo "tag_valid=false" >> $GITHUB_OUTPUT
             echo ""
             echo "📋 Available tags:"
             curl -s "https://hub.docker.com/v2/repositories/$IMAGE/tags?page_size=15" | \
@@ -81,6 +83,7 @@ jobs:
         uses: jdx/mise-action@v2
 
       - name: Setup infrastructure
+        id: setup
         env:
           TEMPORAL_IMAGE_TAG: ${{ github.event.inputs.temporal_version }}
           MONGODB_VERSION: ${{ github.event.inputs.mongodb_version }}
@@ -95,7 +98,7 @@ jobs:
           for i in {1..60}; do
             if nc -z localhost 7233 2>/dev/null; then
               echo "✓ Temporal is reachable on port 7233"
-              sleep 5  # Extra wait for full initialization
+              sleep 5
               exit 0
             fi
             echo "Waiting... ($i/60)"
@@ -106,15 +109,18 @@ jobs:
           exit 1
 
       - name: Run E2E Tests
+        id: e2e
         if: ${{ github.event.inputs.run_e2e == 'true' }}
         run: |
           echo "Running 329 E2E tests..."
           mise run tests
 
       - name: Run Load Tests
+        id: load
         if: ${{ github.event.inputs.run_load == 'true' }}
         env:
           LOAD_TEST_SUMMARY: ${{ env.LOAD_TEST_SUMMARY }}
+          TEMPORAL_IMAGE_TAG: ${{ github.event.inputs.temporal_version }}
         run: |
           echo "Running load tests (mode: ${{ github.event.inputs.load_mode }})..."
           mise run load:${{ github.event.inputs.load_mode }}
@@ -129,25 +135,77 @@ jobs:
           echo "## 🧪 MongoDB Validation Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Header with test info
-          echo "| | |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          # Determine job outcome
+          JOB_STATUS="${{ job.status }}"
+
+          if [ "$JOB_STATUS" = "success" ]; then
+            echo "### ✅ All validations passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Validation failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Configuration table
+          echo "| Configuration | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| **🐳 Image** | \`agdelen/temporal:${{ github.event.inputs.temporal_version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **🍃 MongoDB** | \`${{ github.event.inputs.mongodb_version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **📅 Date** | $(date -u '+%Y-%m-%d %H:%M UTC') |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Test status
-          echo "### ✅ Test Results" >> $GITHUB_STEP_SUMMARY
+          # Validation steps table
+          echo "### 📋 Validation Steps" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| E2E (329 tests) | ${{ github.event.inputs.run_e2e == 'true' && '✅ Passed' || '⏭️ Skipped' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Load Tests (\`${{ github.event.inputs.load_mode }}\`) | ${{ github.event.inputs.run_load == 'true' && '✅ Passed' || '⏭️ Skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Step | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          # Tag validation
+          TAG_RESULT="${{ steps.validate_tag.outcome }}"
+          if [ "$TAG_RESULT" = "success" ]; then
+            echo "| 🔍 Image tag validation | ✅ Valid |" >> $GITHUB_STEP_SUMMARY
+          elif [ "$TAG_RESULT" = "failure" ]; then
+            echo "| 🔍 Image tag validation | ❌ **Tag not found on Docker Hub** |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🔍 Image tag validation | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Setup
+          SETUP_RESULT="${{ steps.setup.outcome }}"
+          if [ "$SETUP_RESULT" = "success" ]; then
+            echo "| 🏗️ Infrastructure setup | ✅ Ready |" >> $GITHUB_STEP_SUMMARY
+          elif [ "$SETUP_RESULT" = "failure" ]; then
+            echo "| 🏗️ Infrastructure setup | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🏗️ Infrastructure setup | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # E2E Tests
+          E2E_RESULT="${{ steps.e2e.outcome }}"
+          if [ "${{ github.event.inputs.run_e2e }}" != "true" ]; then
+            echo "| 🧪 E2E tests (329) | ⏭️ Skipped (disabled) |" >> $GITHUB_STEP_SUMMARY
+          elif [ "$E2E_RESULT" = "success" ]; then
+            echo "| 🧪 E2E tests (329) | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          elif [ "$E2E_RESULT" = "failure" ]; then
+            echo "| 🧪 E2E tests (329) | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🧪 E2E tests (329) | ⏭️ Skipped (prerequisite failed) |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Load Tests
+          LOAD_RESULT="${{ steps.load.outcome }}"
+          if [ "${{ github.event.inputs.run_load }}" != "true" ]; then
+            echo "| 📊 Load tests (\`${{ github.event.inputs.load_mode }}\`) | ⏭️ Skipped (disabled) |" >> $GITHUB_STEP_SUMMARY
+          elif [ "$LOAD_RESULT" = "success" ]; then
+            echo "| 📊 Load tests (\`${{ github.event.inputs.load_mode }}\`) | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          elif [ "$LOAD_RESULT" = "failure" ]; then
+            echo "| 📊 Load tests (\`${{ github.event.inputs.load_mode }}\`) | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 📊 Load tests (\`${{ github.event.inputs.load_mode }}\`) | ⏭️ Skipped (prerequisite failed) |" >> $GITHUB_STEP_SUMMARY
+          fi
+
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Load test details if available
           if [ -f "${{ env.LOAD_TEST_SUMMARY }}" ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
             cat "${{ env.LOAD_TEST_SUMMARY }}" >> $GITHUB_STEP_SUMMARY
           fi
