@@ -33,7 +33,7 @@ services:
       - temporal-mongodb
 
   temporal-server:
-    image: ${DOCKER_REGISTRY:-agdelen}/temporal:${TEMPORAL_IMAGE_TAG:-1.30.0}
+    image: ${DOCKER_REGISTRY:-agdelen}/temporal:${TEMPORAL_IMAGE_TAG:?TEMPORAL_IMAGE_TAG must be set}
     container_name: temporal-mongodb-server
     depends_on:
       mongodb:

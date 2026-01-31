@@ -20,12 +20,33 @@ NAMESPACE="${NAMESPACE:-temporal-mongodb}"
 TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-localhost:7233}"
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-120}"
 
+# Validate required environment variables
+if [ -z "$TEMPORAL_IMAGE_TAG" ]; then
+    log_error "TEMPORAL_IMAGE_TAG is required"
+    log_error "Usage: TEMPORAL_IMAGE_TAG=1.30.0-mongo.148 ./scripts/setup.sh"
+    exit 1
+fi
+
+EXPECTED_IMAGE="${DOCKER_REGISTRY:-agdelen}/temporal:${TEMPORAL_IMAGE_TAG}"
+
 log_info "Starting infrastructure setup..."
+log_info "  Expected image: $EXPECTED_IMAGE"
 
 # Start Docker containers
 log_info "Starting Docker containers..."
 cd "$ROOT_DIR/docker"
 docker compose up -d
+
+# Verify the correct image is running
+RUNNING_IMAGE=$(docker inspect temporal-mongodb-server --format '{{.Config.Image}}' 2>/dev/null || echo "unknown")
+log_info "  Running image: $RUNNING_IMAGE"
+
+if [ "$RUNNING_IMAGE" != "$EXPECTED_IMAGE" ]; then
+    log_error "Image mismatch!"
+    log_error "  Expected: $EXPECTED_IMAGE"
+    log_error "  Running:  $RUNNING_IMAGE"
+    exit 1
+fi
 
 # Wait for Temporal server to be healthy
 log_info "Waiting for Temporal server to be healthy (timeout: ${WAIT_TIMEOUT}s)..."
