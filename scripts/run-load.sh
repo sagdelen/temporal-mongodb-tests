@@ -108,8 +108,7 @@ run_scenario() {
     
     local start_time=$(date +%s)
     
-    local output
-    output=$(go run ./cmd run-scenario-with-worker \
+    go run ./cmd run-scenario-with-worker \
         --scenario "$scenario" \
         --language "$LANGUAGE" \
         --server-address "$TEMPORAL_ADDRESS" \
@@ -119,7 +118,7 @@ run_scenario() {
         --max-concurrent "$concurrent" \
         --log-level "$LOG_LEVEL" \
         --do-not-register-search-attributes \
-        $options 2>&1) || { echo "$output"; return 1; }
+        $options
     
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
