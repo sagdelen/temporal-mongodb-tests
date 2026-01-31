@@ -212,37 +212,6 @@ run_duration_scenario() {
 }
 
 # Upstream-compatible throughput_stress runner
-run_upstream_stress() {
-    local test_duration=$1
-    local description=$2
-    local run_id="upstream-$(date +%s)-$RANDOM"
-    
-    log_info "Running upstream-compatible throughput_stress"
-    log_info "  Duration: $test_duration"
-    log_info "  Internal iterations: 25"
-    log_info "  Continue-as-new after: 5 iterations"
-    
-    local start_time=$(date +%s)
-    
-    go run ./cmd run-scenario-with-worker \
-        --scenario throughput_stress \
-        --language "$LANGUAGE" \
-        --server-address "$TEMPORAL_ADDRESS" \
-        --namespace "$NAMESPACE" \
-        --run-id "$run_id" \
-        --duration "$test_duration" \
-        --log-level "$LOG_LEVEL" \
-        --option internal-iterations=25 \
-        --option continue-as-new-after-iterations=5 \
-        --do-not-register-search-attributes
-    
-    local end_time=$(date +%s)
-    local duration=$((end_time - start_time))
-    log_info "  ✓ Completed in ${duration}s"
-    
-    add_phase "1" "throughput_stress" "-" "-" "$duration" "~" "$description"
-}
-
 write_summary() {
     cat > "$SUMMARY_FILE" << EOF
 ### 📊 Load Test Results
@@ -323,26 +292,29 @@ case "$MODE" in
         
     nightly)
         log_section "Nightly Validation (Upstream-Compatible)"
-        log_warn "⏱️  This test takes approximately 2 hours 5 minutes"
-        log_warn "📋 Matches Temporal's internal nightly test configuration"
-        log_info ""
-        log_info "Source: https://github.com/temporalio/temporal/issues/8652\#issuecomment-3775536865"
-        log_info ""
-        
-        run_upstream_stress "2h5m" "nightly (2h5m, upstream-compatible)"
-        ;;
-        
-    weekly)
-        log_section "Weekly Validation (Upstream-Compatible)"
-        log_warn "⏱️  This test takes 24 HOURS"
-        log_warn "📋 Matches Temporal's internal weekly test configuration"
+        log_warn "⏱️  This test runs 1500 throughput_stress iterations (~2 hours)"
+        log_warn "📋 Based on Temporal's internal nightly test configuration"
         log_info ""
         log_info "Source: https://github.com/temporalio/temporal/issues/8652#issuecomment-3775536865"
         log_info ""
         
-        # Safety confirmation for 24h test
+        # Using --iterations instead of --duration for reliability
+        # 1500 iterations ≈ 2h at ~12 iterations/minute
+        run_scenario "throughput_stress" 1500 50 \
+            "--option internal-iterations=25 --option continue-as-new-after-iterations=5" 1
+        ;;
+        
+    weekly)
+        log_section "Weekly Validation (Upstream-Compatible)"
+        log_warn "⏱️  This test runs 15000 throughput_stress iterations (~20 hours)"
+        log_warn "📋 Based on Temporal's internal weekly test configuration"
+        log_info ""
+        log_info "Source: https://github.com/temporalio/temporal/issues/8652#issuecomment-3775536865"
+        log_info ""
+        
+        # Safety confirmation for long test
         if [[ "${SKIP_CONFIRMATION:-}" != "true" ]]; then
-            echo -e "${YELLOW}Are you sure you want to run a 24-hour test? (yes/no):${NC} "
+            echo -e "${YELLOW}Are you sure you want to run a ~20 hour test? (yes/no):${NC} "
             read -r confirm
             if [[ "$confirm" != "yes" ]]; then
                 log_warn "Aborted."
@@ -350,7 +322,10 @@ case "$MODE" in
             fi
         fi
         
-        run_upstream_stress "24h" "weekly (24h, upstream-compatible)"
+        # Using --iterations instead of --duration for reliability
+        # 15000 iterations ≈ 20h at ~12 iterations/minute
+        run_scenario "throughput_stress" 15000 50 \
+            "--option internal-iterations=25 --option continue-as-new-after-iterations=5" 1
         ;;
         
     *)
