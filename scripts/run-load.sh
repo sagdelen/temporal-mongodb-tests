@@ -49,6 +49,22 @@ fi
 
 cd "$OMES_DIR"
 
+# Track background worker PIDs for cleanup
+WORKER_PIDS=()
+
+cleanup_workers() {
+    for pid in "${WORKER_PIDS[@]}"; do
+        if kill -0 "$pid" 2>/dev/null; then
+            log_info "Stopping worker (PID: $pid)"
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+        fi
+    done
+    WORKER_PIDS=()
+}
+
+trap cleanup_workers EXIT
+
 run_scenario() {
     local scenario=$1
     local iterations=$2
@@ -71,6 +87,56 @@ run_scenario() {
         --max-concurrent "$concurrent" \
         --do-not-register-search-attributes \
         $options
+    
+    local end_time=$(date +%s)
+    local duration=$((end_time - start_time))
+    log_info "  ✓ Completed in ${duration}s"
+}
+
+run_scenario_multi_tq() {
+    local scenario=$1
+    local iterations=$2
+    local concurrent=$3
+    local tq_count=$4
+    local run_id="mongo-mtq-$(date +%s)-$RANDOM"
+    
+    log_info "Scenario: $scenario (multi-task-queue)"
+    log_info "  Iterations: $iterations | Concurrency: $concurrent | Task Queues: $tq_count"
+    
+    local start_time=$(date +%s)
+    
+    # Start worker that listens to multiple task queues (suffixes 0 to tq_count-1)
+    log_info "  Starting worker for $tq_count task queues..."
+    go run ./cmd run-worker \
+        --scenario "$scenario" \
+        --language "$LANGUAGE" \
+        --server-address "$TEMPORAL_ADDRESS" \
+        --namespace "$NAMESPACE" \
+        --run-id "$run_id" \
+        --task-queue-suffix-index-start 0 \
+        --task-queue-suffix-index-end $((tq_count - 1)) \
+        --log-level warn &
+    local worker_pid=$!
+    WORKER_PIDS+=($worker_pid)
+    
+    # Give worker time to start
+    sleep 2
+    
+    # Run scenario (without worker)
+    go run ./cmd run-scenario \
+        --scenario "$scenario" \
+        --server-address "$TEMPORAL_ADDRESS" \
+        --namespace "$NAMESPACE" \
+        --run-id "$run_id" \
+        --iterations "$iterations" \
+        --max-concurrent "$concurrent" \
+        --do-not-register-search-attributes \
+        --option "task-queue-count=$tq_count"
+    
+    # Stop worker
+    kill "$worker_pid" 2>/dev/null || true
+    wait "$worker_pid" 2>/dev/null || true
+    WORKER_PIDS=("${WORKER_PIDS[@]/$worker_pid}")
     
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
@@ -119,6 +185,9 @@ case "$MODE" in
         
         log_info "Phase 2: Child workflows & continue-as-new"
         run_scenario "throughput_stress" 20 10
+        
+        log_info "Phase 3: Multi-task-queue distribution"
+        run_scenario_multi_tq "workflow_on_many_task_queues" 100 20 5
         ;;
         
     full)
@@ -133,10 +202,13 @@ case "$MODE" in
         log_info "Phase 3: Many actions (sequential - avoids child workflow ID collision)"
         run_scenario "workflow_with_many_actions" 20 1
         
-        log_info "Phase 4: Scheduler stress"
+        log_info "Phase 4: Multi-task-queue distribution"
+        run_scenario_multi_tq "workflow_on_many_task_queues" 200 50 5
+        
+        log_info "Phase 5: Scheduler stress"
         run_duration_scenario "scheduler_stress" "30s"
         
-        log_info "Phase 5: State transitions"
+        log_info "Phase 6: State transitions"
         run_duration_scenario "state_transitions_steady" "30s"
         ;;
         
