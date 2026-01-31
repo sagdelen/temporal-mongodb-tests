@@ -221,8 +221,8 @@ run_upstream_stress() {
         --namespace "$NAMESPACE" \
         --run-id "$run_id" \
         --duration "$test_duration" \
-        --internal-iterations 25 \
-        --continue-as-new-after-iterations 5 \
+        --option internal-iterations=25 \
+        --option continue-as-new-after-iterations=5 \
         --do-not-register-search-attributes
     
     local end_time=$(date +%s)
