@@ -127,6 +127,8 @@ jobs:
 
       - name: Teardown
         if: always()
+        env:
+          TEMPORAL_IMAGE_TAG: ${{ github.event.inputs.temporal_version }}
         run: mise run teardown
 
       - name: Summary
