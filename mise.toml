@@ -7,7 +7,7 @@ uv = "latest"
 NAMESPACE = "temporal-mongodb"
 TEMPORAL_ADDRESS = "localhost:7233"
 DOCKER_REGISTRY = "agdelen"
-TEMPORAL_IMAGE_TAG = "1.30.0"
+# TEMPORAL_IMAGE_TAG must be provided externally - no default!
 MONGODB_VERSION = "7.0"
 
 [tasks.setup]
