@@ -2,6 +2,21 @@
 # =============================================================================
 # Temporal MongoDB - Load Test Runner
 # =============================================================================
+# Validates MongoDB persistence under load using Temporal's official load
+# generator (omes). Tests workflow scheduling, history persistence, and
+# task dispatch at various throughput levels.
+#
+# Usage:
+#   ./run-load.sh [mode]
+#
+# Modes:
+#   quick     - 100 iterations (~10s)     - Development sanity check
+#   standard  - ~600 iterations (~2min)   - PR/Release validation
+#   full      - Extended stress (~5min)   - Comprehensive validation
+#   nightly   - 2h5m throughput_stress    - Upstream-compatible nightly
+#   weekly    - 24h throughput_stress     - Upstream-compatible weekly
+#
+# =============================================================================
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -67,7 +82,9 @@ add_phase() {
     local note=$7
     
     PHASES+=("$phase|$scenario|$iterations|$concurrent|$duration|$workflows|$note")
-    TOTAL_WORKFLOWS=$((TOTAL_WORKFLOWS + workflows))
+    if [[ "$workflows" =~ ^[0-9]+$ ]]; then
+        TOTAL_WORKFLOWS=$((TOTAL_WORKFLOWS + workflows))
+    fi
     TOTAL_DURATION=$((TOTAL_DURATION + duration))
 }
 
@@ -103,7 +120,6 @@ run_scenario() {
     # Calculate workflows based on scenario
     local workflows=$iterations
     if [[ "$scenario" == "throughput_stress" ]]; then
-        # throughput_stress: parent + 10 children + 3 continue-as-new per iteration
         workflows=$((iterations * 14))
     fi
     
@@ -123,7 +139,6 @@ run_scenario_multi_tq() {
     
     local start_time=$(date +%s)
     
-    # Start worker that listens to multiple task queues
     log_info "  Starting worker for $tq_count task queues..."
     go run ./cmd run-worker \
         --scenario "$scenario" \
@@ -184,6 +199,37 @@ run_duration_scenario() {
     log_info "  ✓ Completed in ${duration}s"
     
     add_phase "$phase_num" "$scenario" "-" "-" "$duration" "~" "duration: $test_duration"
+}
+
+# Upstream-compatible throughput_stress runner
+run_upstream_stress() {
+    local test_duration=$1
+    local description=$2
+    local run_id="upstream-$(date +%s)-$RANDOM"
+    
+    log_info "Running upstream-compatible throughput_stress"
+    log_info "  Duration: $test_duration"
+    log_info "  Internal iterations: 25"
+    log_info "  Continue-as-new after: 5 iterations"
+    
+    local start_time=$(date +%s)
+    
+    go run ./cmd run-scenario-with-worker \
+        --scenario throughput_stress \
+        --language "$LANGUAGE" \
+        --server-address "$TEMPORAL_ADDRESS" \
+        --namespace "$NAMESPACE" \
+        --run-id "$run_id" \
+        --duration "$test_duration" \
+        --internal-iterations 25 \
+        --continue-as-new-after-iterations 5 \
+        --do-not-register-search-attributes
+    
+    local end_time=$(date +%s)
+    local duration=$((end_time - start_time))
+    log_info "  ✓ Completed in ${duration}s"
+    
+    add_phase "1" "throughput_stress" "-" "-" "$duration" "~" "$description"
 }
 
 write_summary() {
@@ -265,9 +311,41 @@ case "$MODE" in
         run_duration_scenario "state_transitions_steady" "30s" 6
         ;;
         
+    nightly)
+        log_section "Nightly Validation (Upstream-Compatible)"
+        log_warn "⏱️  This test takes approximately 2 hours 5 minutes"
+        log_warn "📋 Matches Temporal's internal nightly test configuration"
+        log_info ""
+        log_info "Source: https://github.com/temporalio/temporal/issues/8652\#issuecomment-3775536865"
+        log_info ""
+        
+        run_upstream_stress "2h5m" "nightly (2h5m, upstream-compatible)"
+        ;;
+        
+    weekly)
+        log_section "Weekly Validation (Upstream-Compatible)"
+        log_warn "⏱️  This test takes 24 HOURS"
+        log_warn "📋 Matches Temporal's internal weekly test configuration"
+        log_info ""
+        log_info "Source: https://github.com/temporalio/temporal/issues/8652#issuecomment-3775536865"
+        log_info ""
+        
+        # Safety confirmation for 24h test
+        if [[ "${SKIP_CONFIRMATION:-}" != "true" ]]; then
+            echo -e "${YELLOW}Are you sure you want to run a 24-hour test? (yes/no):${NC} "
+            read -r confirm
+            if [[ "$confirm" != "yes" ]]; then
+                log_warn "Aborted."
+                exit 0
+            fi
+        fi
+        
+        run_upstream_stress "24h" "weekly (24h, upstream-compatible)"
+        ;;
+        
     *)
         log_error "Unknown mode: $MODE"
-        echo "Usage: $0 [quick|standard|full]"
+        echo "Usage: $0 [quick|standard|full|nightly|weekly]"
         exit 1
         ;;
 esac
@@ -279,6 +357,6 @@ write_summary
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
 echo "║  ✓ Load tests completed successfully                           ║"
-echo "║  📊 Total: ${TOTAL_WORKFLOWS} workflows in ${TOTAL_DURATION}s                          ║"
+echo "║  📊 Total: ~${TOTAL_WORKFLOWS} workflows in ${TOTAL_DURATION}s                         ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""

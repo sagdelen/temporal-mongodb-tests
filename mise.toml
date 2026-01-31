@@ -41,3 +41,11 @@ docker compose -f docker/docker-compose.yml down -v 2>/dev/null || true
 rm -rf omes/repo
 rm -rf tests/.venv
 """
+
+[tasks."load:nightly"]
+description = "Run nightly load test (matches upstream Temporal's nightly - ~2h5m)"
+run = "./scripts/run-load.sh nightly"
+
+[tasks."load:weekly"]
+description = "Run weekly load test (matches upstream Temporal's weekly - 24h)"
+run = "./scripts/run-load.sh weekly"

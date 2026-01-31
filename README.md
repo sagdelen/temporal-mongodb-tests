@@ -35,6 +35,62 @@ This test suite validates that the MongoDB implementation:
 
 ---
 
+
+## Compatibility with Upstream Temporal
+
+This test suite follows the **official compatibility criteria** defined by Temporal maintainers for alternative persistence implementations. According to [Temporal's guidance on persistence compatibility](https://github.com/temporalio/temporal/issues/8652#issuecomment-3775536865):
+
+> _"Any persistence implementation that provides similar test coverage should be considered compatible, but it would still be [the community] supporting Temporal and not the other way around."_
+
+### Temporal's Internal Test Regime
+
+Temporal runs the following load tests internally (source: [Roey Bergundy, Temporal Server Maintainer](https://github.com/temporalio/temporal/issues/8652#issuecomment-3775536865)):
+
+| Schedule | Duration | Scenario | Configuration |
+|----------|----------|----------|---------------|
+| **Nightly** (weekdays) | 2h 5m | `throughput_stress` | `--internal-iterations 25 --continue-as-new-after-iterations 5` |
+| **Weekly** | 24h | `throughput_stress` | Extended stress |
+
+**Infrastructure:**
+- 4 Go workers backing the load
+- Periodic pod restarts (random pod every ~1 minute)
+- Nexus endpoint configured
+
+### Our Test Coverage
+
+We provide **comparable test coverage** through:
+
+| Test Type | Coverage | Upstream Equivalent |
+|-----------|----------|---------------------|
+| **E2E Tests** | 329 functional tests | Functional test parity |
+| **Load Tests** | Multiple omes scenarios | Similar to nightly runs |
+| **Stress Tests** | `throughput_stress` with child workflows | Same scenario as upstream |
+
+**Note:** While we don't run 24-hour weekly tests in CI (cost/time constraints), the same scenarios can be run locally for extended validation before major releases.
+
+### Running Upstream-Compatible Tests
+
+To run tests matching Temporal's nightly configuration:
+
+```bash
+# Start infrastructure
+mise run setup
+
+# Run throughput_stress with upstream-like configuration
+cd omes/repo && go run ./cmd run-scenario-with-worker \
+  --scenario throughput_stress \
+  --language go \
+  --server-address localhost:7233 \
+  --namespace temporal-mongodb \
+  --run-id "nightly-$(date +%s)" \
+  --duration 2h5m \
+  --internal-iterations 25 \
+  --continue-as-new-after-iterations 5 \
+  --do-not-register-search-attributes
+```
+
+---
+
 ## Scope
 
 ### What We Test
