@@ -25,6 +25,8 @@ on:
           - quick
           - standard
           - full
+          - nightly
+          - weekly
         default: "standard"
 
 env:
@@ -37,7 +39,7 @@ jobs:
   validate:
     name: Validate ${{ github.event.inputs.temporal_version }}
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
 
     steps:
       - name: 🔍 Validate image tag exists
