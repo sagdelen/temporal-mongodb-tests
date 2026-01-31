@@ -6,7 +6,6 @@ on:
       temporal_version:
         description: "Temporal image tag (e.g., 1.30.0-mongo.148)"
         required: true
-        default: "1.30.0"
       mongodb_version:
         description: "MongoDB version"
         required: true
@@ -32,6 +31,7 @@ env:
   DOCKER_REGISTRY: agdelen
   NAMESPACE: temporal-mongodb
   TEMPORAL_ADDRESS: localhost:7233
+  LOAD_TEST_SUMMARY: /tmp/load-test-summary.md
 
 jobs:
   validate:
@@ -84,6 +84,8 @@ jobs:
 
       - name: Run Load Tests
         if: ${{ github.event.inputs.run_load == 'true' }}
+        env:
+          LOAD_TEST_SUMMARY: ${{ env.LOAD_TEST_SUMMARY }}
         run: |
           echo "Running load tests (mode: ${{ github.event.inputs.load_mode }})..."
           mise run load:${{ github.event.inputs.load_mode }}
@@ -97,10 +99,26 @@ jobs:
         run: |
           echo "## 🧪 MongoDB Validation Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** \`agdelen/temporal:${{ github.event.inputs.temporal_version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**MongoDB:** \`${{ github.event.inputs.mongodb_version }}\`" >> $GITHUB_STEP_SUMMARY
+
+          # Header with test info
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **🐳 Image** | \`agdelen/temporal:${{ github.event.inputs.temporal_version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **🍃 MongoDB** | \`${{ github.event.inputs.mongodb_version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **📅 Date** | $(date -u '+%Y-%m-%d %H:%M UTC') |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Test status
+          echo "### ✅ Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| E2E (329 tests) | ${{ github.event.inputs.run_e2e == 'true' && '✅ Ran' || '⏭️ Skipped' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Load (${{ github.event.inputs.load_mode }}) | ${{ github.event.inputs.run_load == 'true' && '✅ Ran' || '⏭️ Skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E (329 tests) | ${{ github.event.inputs.run_e2e == 'true' && '✅ Passed' || '⏭️ Skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Load Tests (\`${{ github.event.inputs.load_mode }}\`) | ${{ github.event.inputs.run_load == 'true' && '✅ Passed' || '⏭️ Skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Load test details if available
+          if [ -f "${{ env.LOAD_TEST_SUMMARY }}" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            cat "${{ env.LOAD_TEST_SUMMARY }}" >> $GITHUB_STEP_SUMMARY
+          fi
