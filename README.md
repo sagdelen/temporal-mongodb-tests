@@ -220,27 +220,75 @@ cd omes/repo && go run ./cmd run-scenario-with-worker \
 
 ## Test Suites
 
-### E2E Tests (329 tests)
+### Feature Coverage Tests (329 tests)
 
-Comprehensive functional tests covering:
+These tests validate that **MongoDB persistence correctly supports all Temporal features accessible via SDK**. They are integration tests that exercise the full stack:
 
-| Category          | Tests | Description                                      |
-| ----------------- | ----- | ------------------------------------------------ |
-| Workflow          | ~80   | Start, cancel, terminate, reset, continue-as-new |
-| Activity          | ~60   | Execution, heartbeat, retry, timeout             |
-| Signal            | ~40   | Send, receive, signal-with-start                 |
-| Query             | ~30   | Sync queries, query rejection                    |
-| Timer             | ~25   | Durable timers, cancellation                     |
-| Child Workflow    | ~30   | Parent-child relationships                       |
-| Saga              | ~20   | Compensation patterns                            |
-| Search Attributes | ~20   | Custom search attributes, visibility             |
-| Miscellaneous     | ~24   | Edge cases, error handling                       |
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Python SDK (test client)                    │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │ gRPC
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Temporal Server                            │
+│                (Frontend, History, Matching)                    │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    MongoDB Persistence                          │
+│         (Execution Store, History, Visibility, Tasks)           │  ← WHAT WE'RE VALIDATING
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Why These Tests Matter
+
+Every SDK operation ultimately requires persistence:
+
+| SDK Operation | Server Action | Persistence Impact |
+|---------------|---------------|-------------------|
+| `start_workflow()` | Create execution | Write to execution store |
+| `execute_activity()` | Dispatch task, record result | Task queue + history events |
+| `signal()` | Deliver signal | History event write |
+| `query()` | Read state | Mutable state read |
+| `describe()` | Get workflow info | Visibility store query |
+| `list_workflows()` | Search workflows | Visibility query |
+| `continue_as_new()` | Close + start new | Complex multi-write transaction |
+
+By testing all these operations against a real MongoDB-backed server, we prove that:
+1. **All persistence interfaces are correctly implemented**
+2. **Data is durable and retrievable**
+3. **Concurrent operations maintain consistency**
+4. **Error handling works correctly**
+
+#### What We Test
+
+| Category          | Tests | Description                                      | Persistence Validated |
+| ----------------- | ----- | ------------------------------------------------ | --------------------- |
+| Workflow          | ~80   | Start, cancel, terminate, reset, continue-as-new | Execution store, history |
+| Activity          | ~60   | Execution, heartbeat, retry, timeout             | Task dispatch, history |
+| Signal            | ~40   | Send, receive, signal-with-start                 | History writes |
+| Query             | ~30   | Sync queries, query rejection                    | Mutable state |
+| Timer             | ~25   | Durable timers, cancellation                     | Timer queue |
+| Child Workflow    | ~30   | Parent-child relationships                       | Cross-execution refs |
+| Saga              | ~20   | Compensation patterns                            | Multi-activity sequences |
+| Search Attributes | ~20   | Custom search attributes, visibility             | Visibility store |
+| Persistence       | ~10   | Large payloads, data isolation                   | Data integrity |
+| Miscellaneous     | ~14   | Edge cases, error handling                       | Error paths |
+
+#### How This Differs From Upstream Tests
+
+| Test Type | Location | What It Tests |
+|-----------|----------|---------------|
+| **SDK Unit Tests** | SDK repos | SDK internal logic (often with mock server) |
+| **Server Unit Tests** | temporal/temporal | Go code correctness |
+| **Server Functional Tests** | temporal/temporal | Server behavior with supported DBs |
+| **Our Feature Coverage** | This repo | MongoDB persistence via real SDK operations |
+
+Our tests complement upstream by validating MongoDB specifically—something upstream doesn't do because they don't maintain MongoDB support.
 
 **Run time:** ~6 minutes
-
-### Load Tests (omes)
-
-[Omes](https://github.com/temporalio/omes) is Temporal's official load generator.
 
 | Mode     | Command                  | Iterations | Duration | Purpose            |
 | -------- | ------------------------ | ---------- | -------- | ------------------ |
