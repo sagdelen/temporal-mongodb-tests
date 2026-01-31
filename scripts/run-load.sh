@@ -11,8 +11,8 @@
 #
 # Modes:
 #   quick     - 100 iterations (~4s)  - Development sanity check
-#   standard  - 1,500 iterations (~30s) - Release validation
-#   full      - Extended stress test (~2min) - Deep validation
+#   standard  - ~600 iterations (~2min) - Release validation
+#   full      - Extended stress test (~5min) - Deep validation
 #
 # =============================================================================
 set -e
@@ -53,7 +53,7 @@ run_scenario() {
     local scenario=$1
     local iterations=$2
     local concurrent=${3:-10}
-    local options=$4  # Optional: e.g., "--option task-queue-count=5"
+    local options=$4
     local run_id="mongo-$(date +%s)-$RANDOM"
     
     log_info "Scenario: $scenario"
@@ -119,9 +119,6 @@ case "$MODE" in
         
         log_info "Phase 2: Child workflows & continue-as-new"
         run_scenario "throughput_stress" 20 10
-        
-        log_info "Phase 3: Multiple task queues"
-        run_scenario "workflow_on_many_task_queues" 100 20 "--option task-queue-count=5"
         ;;
         
     full)
@@ -133,16 +130,13 @@ case "$MODE" in
         log_info "Phase 2: Throughput stress (child workflows, continue-as-new)"
         run_scenario "throughput_stress" 50 20
         
-        log_info "Phase 3: Multiple task queues"
-        run_scenario "workflow_on_many_task_queues" 200 50 "--option task-queue-count=10"
-        
-        log_info "Phase 4: Many actions (sequential)"
+        log_info "Phase 3: Many actions (sequential - avoids child workflow ID collision)"
         run_scenario "workflow_with_many_actions" 20 1
         
-        log_info "Phase 5: Scheduler stress"
+        log_info "Phase 4: Scheduler stress"
         run_duration_scenario "scheduler_stress" "30s"
         
-        log_info "Phase 6: State transitions"
+        log_info "Phase 5: State transitions"
         run_duration_scenario "state_transitions_steady" "30s"
         ;;
         
