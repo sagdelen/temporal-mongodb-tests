@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       temporal_version:
-        description: "Temporal image tag (e.g., 1.30.0-mongo.148)"
+        description: "Temporal image tag (e.g., 1.30.0-mongo)"
         required: true
       mongodb_version:
         description: "MongoDB version"
@@ -40,6 +40,35 @@ jobs:
     timeout-minutes: 120
 
     steps:
+      - name: 🔍 Validate image tag exists
+        run: |
+          IMAGE="agdelen/temporal"
+          TAG="${{ github.event.inputs.temporal_version }}"
+
+          echo "Checking if $IMAGE:$TAG exists on Docker Hub..."
+
+          # Query Docker Hub API
+          RESPONSE=$(curl -s "https://hub.docker.com/v2/repositories/$IMAGE/tags/$TAG")
+
+          if echo "$RESPONSE" | grep -q '"name"'; then
+            echo "✅ Image tag found: $IMAGE:$TAG"
+            
+            # Show available tags for reference
+            echo ""
+            echo "📋 Recent tags available:"
+            curl -s "https://hub.docker.com/v2/repositories/$IMAGE/tags?page_size=10" | \
+              jq -r '.results[].name' | head -10
+          else
+            echo "❌ ERROR: Image tag NOT found: $IMAGE:$TAG"
+            echo ""
+            echo "📋 Available tags:"
+            curl -s "https://hub.docker.com/v2/repositories/$IMAGE/tags?page_size=15" | \
+              jq -r '.results[].name'
+            echo ""
+            echo "Please use one of the available tags above."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
 
