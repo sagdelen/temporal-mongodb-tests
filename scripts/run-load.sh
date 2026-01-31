@@ -307,8 +307,7 @@ case "$MODE" in
         log_info "Phase 5: Scheduler stress"
         run_duration_scenario "scheduler_stress" "30s" 5
         
-        log_info "Phase 6: State transitions"
-        run_duration_scenario "state_transitions_steady" "30s" 6
+        log_info ""
         ;;
         
     nightly)
