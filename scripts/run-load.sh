@@ -40,6 +40,13 @@ TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-localhost:7233}"
 LANGUAGE="go"
 MODE="${1:-quick}"
 
+# Debug mode (set DEBUG_LOGS=true for verbose output)
+LOG_LEVEL="info"
+if [[ "${DEBUG_LOGS:-false}" == "true" ]]; then
+    LOG_LEVEL="debug"
+    log_warn "Debug logging enabled - verbose output"
+fi
+
 OMES_DIR="$ROOT_DIR/omes/repo"
 SUMMARY_FILE="${LOAD_TEST_SUMMARY:-/tmp/load-test-summary.md}"
 
@@ -110,6 +117,7 @@ run_scenario() {
         --run-id "$run_id" \
         --iterations "$iterations" \
         --max-concurrent "$concurrent" \
+        --log-level "$LOG_LEVEL" \
         --do-not-register-search-attributes \
         $options 2>&1) || { echo "$output"; return 1; }
     
@@ -148,7 +156,7 @@ run_scenario_multi_tq() {
         --run-id "$run_id" \
         --task-queue-suffix-index-start 0 \
         --task-queue-suffix-index-end $((tq_count - 1)) \
-        --log-level warn &
+        --log-level "$LOG_LEVEL" &
     local worker_pid=$!
     WORKER_PIDS+=($worker_pid)
     
@@ -161,6 +169,7 @@ run_scenario_multi_tq() {
         --run-id "$run_id" \
         --iterations "$iterations" \
         --max-concurrent "$concurrent" \
+        --log-level "$LOG_LEVEL" \
         --do-not-register-search-attributes \
         --option "task-queue-count=$tq_count"
     
@@ -192,6 +201,7 @@ run_duration_scenario() {
         --namespace "$NAMESPACE" \
         --run-id "$run_id" \
         --duration "$test_duration" \
+        --log-level "$LOG_LEVEL" \
         --do-not-register-search-attributes
     
     local end_time=$(date +%s)
@@ -221,6 +231,7 @@ run_upstream_stress() {
         --namespace "$NAMESPACE" \
         --run-id "$run_id" \
         --duration "$test_duration" \
+        --log-level "$LOG_LEVEL" \
         --option internal-iterations=25 \
         --option continue-as-new-after-iterations=5 \
         --do-not-register-search-attributes
