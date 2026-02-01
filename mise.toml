@@ -49,3 +49,7 @@ run = "./scripts/run-load.sh nightly"
 [tasks."load:weekly"]
 description = "Run weekly load test (matches upstream Temporal's weekly - 24h)"
 run = "./scripts/run-load.sh weekly"
+
+[tasks."load:custom"]
+description = "Run custom load test with configurable iterations"
+run = "./scripts/run-load.sh custom ${CUSTOM_ITERATIONS:-100}"
