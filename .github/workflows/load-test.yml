@@ -1,5 +1,7 @@
 name: MongoDB Validation Suite
 
+run-name: "${{ github.event.inputs.temporal_version }} - ${{ github.event.inputs.run_e2e == 'true' && '329 E2E' || 'No E2E' }} + ${{ github.event.inputs.run_load == 'true' && github.event.inputs.load_mode || 'No' }} load"
+
 on:
   workflow_dispatch:
     inputs:
@@ -11,7 +13,7 @@ on:
         required: true
         default: "7.0"
       run_e2e:
-        description: "Run E2E tests (329 tests)"
+        description: "Run Feature Coverage tests (329 tests) - uncheck to skip"
         type: boolean
         default: true
       run_load:
@@ -43,7 +45,7 @@ jobs:
   validate:
     name: Validate ${{ github.event.inputs.temporal_version }}
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 400
 
     steps:
       - name: 🔍 Validate image tag exists

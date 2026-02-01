@@ -269,22 +269,22 @@ case "$MODE" in
         ;;
         
     full)
-        log_section "Full Stress Test"
+        log_section "Full Stress Test (~1 hour)"
         
         log_info "Phase 1: High-volume basic workflows"
-        run_scenario "workflow_with_single_noop_activity" 2000 100 "" 1
+        run_scenario "workflow_with_single_noop_activity" 25000 100 "" 1
         
         log_info "Phase 2: Throughput stress (child workflows, continue-as-new)"
-        run_scenario "throughput_stress" 50 20 "" 2
+        run_scenario "throughput_stress" 650 50 "" 2
         
         log_info "Phase 3: Many actions (sequential)"
-        run_scenario "workflow_with_many_actions" 20 1 "" 3
+        run_scenario "workflow_with_many_actions" 250 1 "" 3
         
         log_info "Phase 4: Multi-task-queue distribution"
-        run_scenario_multi_tq "workflow_on_many_task_queues" 200 50 5 4
+        run_scenario_multi_tq "workflow_on_many_task_queues" 2500 50 5 4
         
         log_info "Phase 5: Scheduler stress"
-        run_duration_scenario "scheduler_stress" "30s" 5
+        run_duration_scenario "scheduler_stress" "6m30s" 5
         
         log_info ""
         ;;
@@ -294,19 +294,18 @@ case "$MODE" in
         log_warn "⏱️  Extended throughput_stress validation"
         log_info ""
         
-        # ~3 hours: 200 iterations, each ~50-60s
-        # No --option flags (caused worker startup issues)
-        run_scenario "throughput_stress" 200 50 "" 1
+        # ~3 hours: 5000 iterations at ~2.1s each
+        run_scenario "throughput_stress" 5000 50 "" 1
         ;;
         
     weekly)
-        log_section "Weekly Stress Test (~6 hours)"
+        log_section "Weekly Stress Test (~5.5 hours)"
         log_warn "⏱️  Deep throughput_stress validation"
         log_info ""
         
         # Safety confirmation for long test
         if [[ "${SKIP_CONFIRMATION:-}" != "true" ]]; then
-            echo -e "${YELLOW}Are you sure you want to run a ~6 hour test? (yes/no):${NC} "
+            echo -e "${YELLOW}Are you sure you want to run a ~5.5 hour test? (yes/no):${NC} "
             read -r confirm
             if [[ "$confirm" != "yes" ]]; then
                 log_warn "Aborted."
@@ -314,8 +313,8 @@ case "$MODE" in
             fi
         fi
         
-        # ~6 hours: 400 iterations, each ~50-60s
-        run_scenario "throughput_stress" 400 50 "" 1
+        # ~5.5 hours: 9500 iterations at ~2.1s each
+        run_scenario "throughput_stress" 9500 50 "" 1
         ;;
         
     *)
