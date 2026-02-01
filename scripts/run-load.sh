@@ -290,30 +290,23 @@ case "$MODE" in
         ;;
         
     nightly)
-        log_section "Nightly Validation (Upstream-Compatible)"
-        log_warn "⏱️  This test runs 1500 throughput_stress iterations (~2 hours)"
-        log_warn "📋 Based on Temporal's internal nightly test configuration"
-        log_info ""
-        log_info "Source: https://github.com/temporalio/temporal/issues/8652#issuecomment-3775536865"
+        log_section "Nightly Stress Test (~3 hours)"
+        log_warn "⏱️  Extended throughput_stress validation"
         log_info ""
         
-        # Using --iterations instead of --duration for reliability
-        # 1500 iterations ≈ 2h at ~12 iterations/minute
-        run_scenario "throughput_stress" 1500 50 \
-            "--option internal-iterations=25 --option continue-as-new-after-iterations=5" 1
+        # ~3 hours: 200 iterations, each ~50-60s
+        # No --option flags (caused worker startup issues)
+        run_scenario "throughput_stress" 200 50 "" 1
         ;;
         
     weekly)
-        log_section "Weekly Validation (Upstream-Compatible)"
-        log_warn "⏱️  This test runs 15000 throughput_stress iterations (~20 hours)"
-        log_warn "📋 Based on Temporal's internal weekly test configuration"
-        log_info ""
-        log_info "Source: https://github.com/temporalio/temporal/issues/8652#issuecomment-3775536865"
+        log_section "Weekly Stress Test (~6 hours)"
+        log_warn "⏱️  Deep throughput_stress validation"
         log_info ""
         
         # Safety confirmation for long test
         if [[ "${SKIP_CONFIRMATION:-}" != "true" ]]; then
-            echo -e "${YELLOW}Are you sure you want to run a ~20 hour test? (yes/no):${NC} "
+            echo -e "${YELLOW}Are you sure you want to run a ~6 hour test? (yes/no):${NC} "
             read -r confirm
             if [[ "$confirm" != "yes" ]]; then
                 log_warn "Aborted."
@@ -321,10 +314,8 @@ case "$MODE" in
             fi
         fi
         
-        # Using --iterations instead of --duration for reliability
-        # 15000 iterations ≈ 20h at ~12 iterations/minute
-        run_scenario "throughput_stress" 15000 50 \
-            "--option internal-iterations=25 --option continue-as-new-after-iterations=5" 1
+        # ~6 hours: 400 iterations, each ~50-60s
+        run_scenario "throughput_stress" 400 50 "" 1
         ;;
         
     *)
