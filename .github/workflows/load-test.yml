@@ -29,6 +29,7 @@ on:
           - full
           - nightly
           - weekly
+          - custom
         default: "standard"
       debug_logs:
         description: "Enable debug logs (verbose output)"
