@@ -32,7 +32,7 @@ on:
           - custom
         default: "standard"
       custom_iterations:
-        description: "Iterations for custom mode (default: 100)"
+        description: "⚡ ONLY for custom mode - iteration count (ignored otherwise)"
         type: string
         default: "100"
       debug_logs:
