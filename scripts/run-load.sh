@@ -39,6 +39,7 @@ NAMESPACE="${NAMESPACE:-temporal-mongodb}"
 TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-localhost:7233}"
 LANGUAGE="go"
 MODE="${1:-quick}"
+CUSTOM_ITERATIONS="${2:-100}"
 
 # Debug mode (set DEBUG_LOGS=true for verbose output)
 LOG_LEVEL="info"
@@ -317,9 +318,15 @@ case "$MODE" in
         run_scenario "throughput_stress" 9500 50 "" 1
         ;;
         
+    custom)
+        log_section "Custom Throughput Stress Test"
+        log_info "Iterations: $CUSTOM_ITERATIONS"
+        run_scenario "throughput_stress" "$CUSTOM_ITERATIONS" 50 "" 1
+        ;;
+        
     *)
         log_error "Unknown mode: $MODE"
-        echo "Usage: $0 [quick|standard|full|nightly|weekly]"
+        echo "Usage: $0 [quick|standard|full|nightly|weekly|custom] [iterations]"
         exit 1
         ;;
 esac
