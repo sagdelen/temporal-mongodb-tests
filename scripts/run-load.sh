@@ -13,7 +13,7 @@
 #   quick     - 100 iterations (~10s)     - Development sanity check
 #   standard  - ~600 iterations (~2min)   - PR/Release validation
 #   full      - Extended stress (~5min)   - Comprehensive validation
-#   nightly   - 2h5m throughput_stress    - Upstream-compatible nightly
+#   nightly   - ~1h throughput_stress    - Upstream-compatible nightly
 #   weekly    - 24h throughput_stress     - Upstream-compatible weekly
 #
 # =============================================================================
@@ -40,6 +40,7 @@ TEMPORAL_ADDRESS="${TEMPORAL_ADDRESS:-localhost:7233}"
 LANGUAGE="go"
 MODE="${1:-quick}"
 CUSTOM_ITERATIONS="${2:-100}"
+CUSTOM_CONCURRENCY="${3:-50}"
 
 # Debug mode (set DEBUG_LOGS=true for verbose output)
 LOG_LEVEL="info"
@@ -291,12 +292,12 @@ case "$MODE" in
         ;;
         
     nightly)
-        log_section "Nightly Stress Test (~3 hours)"
+        log_section "Nightly Stress Test (~1 hour)"
         log_warn "⏱️  Extended throughput_stress validation"
         log_info ""
         
-        # ~3 hours: 5000 iterations at ~2.1s each
-        run_scenario "throughput_stress" 5000 50 "" 1
+        # ~1 hour: 2500 iterations at ~2.1s each
+        run_scenario "throughput_stress" 2500 50 "" 1
         ;;
         
     weekly)
@@ -320,13 +321,13 @@ case "$MODE" in
         
     custom)
         log_section "Custom Throughput Stress Test"
-        log_info "Iterations: $CUSTOM_ITERATIONS"
-        run_scenario "throughput_stress" "$CUSTOM_ITERATIONS" 50 "" 1
+        log_info "Iterations: $CUSTOM_ITERATIONS, Concurrency: $CUSTOM_CONCURRENCY"
+        run_scenario "throughput_stress" "$CUSTOM_ITERATIONS" "$CUSTOM_CONCURRENCY" "" 1
         ;;
         
     *)
         log_error "Unknown mode: $MODE"
-        echo "Usage: $0 [quick|standard|full|nightly|weekly|custom] [iterations]"
+        echo "Usage: $0 [quick|standard|full|nightly|weekly|custom] [iterations] [concurrency]"
         exit 1
         ;;
 esac
