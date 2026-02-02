@@ -52,4 +52,4 @@ run = "./scripts/run-load.sh weekly"
 
 [tasks."load:custom"]
 description = "Run custom load test with configurable iterations"
-run = "./scripts/run-load.sh custom ${CUSTOM_ITERATIONS:-100}"
+run = "./scripts/run-load.sh custom ${CUSTOM_ITERATIONS:-100} ${CUSTOM_CONCURRENCY:-50}"

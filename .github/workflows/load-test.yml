@@ -35,6 +35,10 @@ on:
         description: "⚡ ONLY for custom mode - iteration count (ignored otherwise)"
         type: string
         default: "100"
+      custom_concurrency:
+        description: "⚡ ONLY for custom mode - concurrency (ignored otherwise)"
+        type: string
+        default: "50"
       debug_logs:
         description: "Enable debug logs (verbose output)"
         type: boolean
@@ -136,6 +140,7 @@ jobs:
           TEMPORAL_IMAGE_TAG: ${{ github.event.inputs.temporal_version }}
           DEBUG_LOGS: ${{ github.event.inputs.debug_logs }}
           CUSTOM_ITERATIONS: ${{ github.event.inputs.custom_iterations }}
+          CUSTOM_CONCURRENCY: ${{ github.event.inputs.custom_concurrency }}
         run: |
           echo "Running load tests (mode: ${{ github.event.inputs.load_mode }})..."
           mise run load:${{ github.event.inputs.load_mode }}
