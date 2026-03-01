@@ -141,6 +141,7 @@ jobs:
           DEBUG_LOGS: ${{ github.event.inputs.debug_logs }}
           CUSTOM_ITERATIONS: ${{ github.event.inputs.custom_iterations }}
           CUSTOM_CONCURRENCY: ${{ github.event.inputs.custom_concurrency }}
+          SKIP_CONFIRMATION: "true"
         run: |
           echo "Running load tests (mode: ${{ github.event.inputs.load_mode }})..."
           mise run load:${{ github.event.inputs.load_mode }}
